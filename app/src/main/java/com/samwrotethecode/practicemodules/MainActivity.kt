@@ -23,7 +23,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.samwrotethecode.practicemodules.core.ui.theme.PracticeModulesTheme
-import kotlin.jvm.java
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,17 +45,17 @@ fun MainScreen(modifier: Modifier = Modifier) {
         CenterAlignedTopAppBar(
             title = {
                 Text("App/Home Screen")
-            }
-        )
+            })
     }) {
         Column(
             modifier = Modifier
                 .padding(it)
-                .fillMaxSize(),
+                .fillMaxSize()
+                .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Text("This is the MainActivity")
+            Text("This is the MainActivity; An Note that it is not recommended to use Multiple Activities. This is just for Modularization illustration purposes only.")
             Spacer(Modifier.size(16.dp))
             Button(onClick = {
                 Intent(context, AuthenticationActivity::class.java).apply {
@@ -72,6 +71,15 @@ fun MainScreen(modifier: Modifier = Modifier) {
                 }
             }) {
                 Text("Open Settings Activity")
+            }
+            Spacer(Modifier.size(16.dp))
+
+            Button(onClick = {
+                Intent(context, FavoritesActivity::class.java).apply {
+                    context.startActivity(this)
+                }
+            }) {
+                Text("Favorites Activity")
             }
             Spacer(Modifier.size(16.dp))
         }

@@ -61,4 +61,5 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":feature:auth"))
     implementation(project(":feature:settings"))
+    implementation(project(":feature:favorites"))
 }

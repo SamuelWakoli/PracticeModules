@@ -17,6 +17,14 @@ data class Person(
     }
 }
 
+// Hardcoded Current Person
+val currentPerson = Person(
+    name = "John Doe",
+    email = "john.doe@example.com",
+    age = 30,
+    address = "123 Main St"
+)
+
 // Hardcoded list of people
 val dummyPeople = listOf(
     Person(

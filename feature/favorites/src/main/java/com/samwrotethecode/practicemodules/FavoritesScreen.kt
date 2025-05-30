@@ -1,6 +1,7 @@
 package com.samwrotethecode.practicemodules
 
 import android.widget.Toast
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,8 +25,8 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -33,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.samwrotethecode.practicemodules.core.model.Person
+import com.samwrotethecode.practicemodules.core.model.currentPerson
 import com.samwrotethecode.practicemodules.core.model.dummyPeople
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,16 +42,13 @@ import com.samwrotethecode.practicemodules.core.model.dummyPeople
 fun FavoritesScreen(modifier: Modifier = Modifier) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Favorites", "Discover")
-
-    // Dummy list of favorite people for demonstration
-    val favoritePeople = remember {
-        mutableStateListOf(
-            dummyPeople[0],
-            dummyPeople[2],
-            dummyPeople[4]
-        )
-    }
     val context = LocalContext.current
+
+    // This state will be used to trigger recomposition when the favorites list changes
+    var favoritesVersion by remember { mutableIntStateOf(0) }
+
+    // Function to call to update the version and trigger recomposition
+    val refreshFavorites = { favoritesVersion++ }
 
     Scaffold(modifier = modifier) { innerPadding ->
         Column(
@@ -66,54 +65,107 @@ fun FavoritesScreen(modifier: Modifier = Modifier) {
                     )
                 }
             }
-            when (selectedTabIndex) {
-                0 -> FavoritesList(people = favoritePeople, onLikeClicked = {
-                    if (favoritePeople.contains(it)) {
-                        favoritePeople.remove(it)
-                        Toast.makeText(context, "${it.name} disliked!", Toast.LENGTH_SHORT).show()
-                    } else {
-                        favoritePeople.add(it)
-                        Toast.makeText(context, "${it.name} liked!", Toast.LENGTH_SHORT).show()
-                    }
-                })
 
-                1 -> DiscoverList(people = dummyPeople, favoritePeople = favoritePeople, onLikeClicked = {
-                    if (favoritePeople.contains(it)) {
-                        favoritePeople.remove(it)
-                        Toast.makeText(context, "${it.name} disliked!", Toast.LENGTH_SHORT).show()
-                    } else {
-                        favoritePeople.add(it)
-                        Toast.makeText(context, "${it.name} liked!", Toast.LENGTH_SHORT).show()
-                    }
-                })
+            // By keying on favoritesVersion, we ensure these sections recompose when it changes
+            key(favoritesVersion) {
+                when (selectedTabIndex) {
+                    0 -> FavoritesTabContent(
+                        currentPerson = currentPerson,
+                        onDislikeClicked = { personToDislike ->
+                            currentPerson dislikes personToDislike
+                            Toast.makeText(context, "${personToDislike.name} disliked!", Toast.LENGTH_SHORT).show()
+                            refreshFavorites()
+                        }
+                    )
+                    1 -> DiscoverTabContent(
+                        allPeople = dummyPeople.filter { it.email != currentPerson.email }, // Exclude currentPerson
+                        currentPerson = currentPerson,
+                        onToggleFavorite = { personToToggle ->
+                            if (currentPerson.favoritePersons.any { it.email == personToToggle.email }) {
+                                currentPerson dislikes personToToggle
+                                Toast.makeText(context, "${personToToggle.name} disliked!", Toast.LENGTH_SHORT).show()
+                            } else {
+                                currentPerson likes personToToggle
+                                Toast.makeText(context, "${personToToggle.name} liked!", Toast.LENGTH_SHORT).show()
+                            }
+                            refreshFavorites()
+                        }
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-fun FavoritesList(people: List<Person>, onLikeClicked: (Person) -> Unit) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp)
-    ) {
-        items(people) {
-            PersonCard(person = it, isFavorite = true, onLikeClicked = { onLikeClicked(it) })
-            Spacer(modifier = Modifier.height(8.dp))
+fun CurrentPersonDetailsCard(person: Person, modifier: Modifier = Modifier) {
+    Card(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Current User", style = MaterialTheme.typography.headlineSmall)
+            Spacer(Modifier.height(8.dp))
+            Text(text = "Name: ${person.name}", style = MaterialTheme.typography.titleMedium)
+            Text(text = "Email: ${person.email}", style = MaterialTheme.typography.bodyMedium)
+            Text(text = "Age: ${person.age}", style = MaterialTheme.typography.bodyMedium)
+            Text(text = "Address: ${person.address}", style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
 
 @Composable
-fun DiscoverList(people: List<Person>, favoritePeople: List<Person>, onLikeClicked: (Person) -> Unit) {
+fun FavoritesTabContent(
+    currentPerson: Person,
+    onDislikeClicked: (Person) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxSize()) {
+        CurrentPersonDetailsCard(person = currentPerson)
+        Text(
+            text = "My Favorite People",
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        if (currentPerson.favoritePersons.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                Text("You haven't liked anyone yet. Go to Discover tab to find people!")
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp)
+            ) {
+                items(items = currentPerson.favoritePersons, key = { it.email }) { person ->
+                    PersonCard(
+                        person = person,
+                        isFavorite = true, // It's always true in this list
+                        onLikeClicked = { onDislikeClicked(person) } // Action here is to dislike
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DiscoverTabContent(
+    allPeople: List<Person>,
+    currentPerson: Person,
+    onToggleFavorite: (Person) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     LazyColumn(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        items(people) {
-            PersonCard(person = it, isFavorite = favoritePeople.contains(it), onLikeClicked = { onLikeClicked(it) })
+        items(items = allPeople,  key = { it.email }) { person ->
+            val isCurrentlyFavorite = currentPerson.favoritePersons.any { it.email == person.email }
+            PersonCard(
+                person = person,
+                isFavorite = isCurrentlyFavorite,
+                onLikeClicked = { onToggleFavorite(person) }
+            )
             Spacer(modifier = Modifier.height(8.dp))
         }
     }
@@ -140,7 +192,7 @@ fun PersonCard(person: Person, isFavorite: Boolean, onLikeClicked: () -> Unit) {
             IconButton(onClick = onLikeClicked) {
                 Icon(
                     imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                    contentDescription = "Like",
+                    contentDescription = if (isFavorite) "Dislike ${person.name}" else "Like ${person.name}",
                     tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
